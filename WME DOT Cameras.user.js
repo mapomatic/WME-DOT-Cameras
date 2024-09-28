@@ -72,6 +72,9 @@
 // @connect      ville.montreal.qc.ca
 // @connect      txdot.gov
 // @connect      arcadis-ivds.com
+// @connect      trimarc.org
+// @connect      511.alaska.gov
+// @connect      njta.com
 /* global OpenLayers */
 /* global W */
 /* global WazeWrap */
@@ -83,8 +86,10 @@
 
 // ==/UserScript==
 
-let ALLayer, AKLayer, AZLayer, ARLayer, CALayer, COLayer, CTLayer, DELayer, DCLayer, FLLayer, GALayer, HILayer, IDLayer, ILLayer, INLayer, IALayer, KSLayer, KYLayer, LALayer, MELayer, MDLayer, MALayer, MILayer, MNLayer, MSLayer, MOLayer, MTLayer, NELayer, NVLayer, NHLayer, NJLayer, NMLayer, NYLayer, NWLayer, NCLayer, NDLayer, OHLayer, OKLayer, ORLayer, PALayer, QCLayer, RILayer, SCLayer, SDLayer, TNLayer, TXLayer, UTLayer, VTLayer, VALayer, WALayer, WILayer, WVLayer, WYLayer;
-let ALFeed = [], AKFeed = [], AZFeed = [], ARFeed = [], CAFeed = [], COFeed = [], CTFeed = [], DEFeed = [], DCFeed = [], FLFeed = [], GAFeed = [], HIFeed = [], IDFeed = [], ILFeed = [], INFeed = [], IAFeed = [], KSFeed = [], KYFeed = [], LAFeed = [], MEFeed = [], MDFeed = [], MAFeed = [], MIFeed = [], MNFeed = [], MSFeed = [], MOFeed = [], MTFeed = [], NEFeed = [], NVFeed = [], NHFeed = [], NJFeed = [], NMFeed = [], NYFeed = [], NWFeed = [], NCFeed = [], NDFeed = [], OHFeed = [], OKFeed = [], ORFeed = [], PAFeed = [], QCFeed = [], RIFeed = [], SCFeed = [], SDFeed = [], TNFeed = [], TXFeed = [], UTFeed = [], VTFeed = [], VAFeed = [], WAFeed = [], WIFeed = [], WVFeed = [], WYFeed;
+const layers = {};
+const feeds = {};
+// let ALLayer, AKLayer, AZLayer, ARLayer, CALayer, COLayer, CTLayer, DELayer, DCLayer, FLLayer, GALayer, HILayer, IDLayer, ILLayer, INLayer, IALayer, KSLayer, KYLayer, LALayer, MELayer, MDLayer, MALayer, MILayer, MNLayer, MSLayer, MOLayer, MTLayer, NELayer, NVLayer, NHLayer, NJLayer, NMLayer, NYLayer, NWLayer, NCLayer, NDLayer, OHLayer, OKLayer, ORLayer, PALayer, QCLayer, RILayer, SCLayer, SDLayer, TNLayer, TXLayer, UTLayer, VTLayer, VALayer, WALayer, WILayer, WVLayer, WYLayer;
+// let ALFeed = [], AKFeed = [], AZFeed = [], ARFeed = [], CAFeed = [], COFeed = [], CTFeed = [], DEFeed = [], DCFeed = [], FLFeed = [], GAFeed = [], HIFeed = [], IDFeed = [], ILFeed = [], INFeed = [], IAFeed = [], KSFeed = [], KYFeed = [], LAFeed = [], MEFeed = [], MDFeed = [], MAFeed = [], MIFeed = [], MNFeed = [], MSFeed = [], MOFeed = [], MTFeed = [], NEFeed = [], NVFeed = [], NHFeed = [], NJFeed = [], NMFeed = [], NYFeed = [], NWFeed = [], NCFeed = [], NDFeed = [], OHFeed = [], OKFeed = [], ORFeed = [], PAFeed = [], QCFeed = [], RIFeed = [], SCFeed = [], SDFeed = [], TNFeed = [], TXFeed = [], UTFeed = [], VTFeed = [], VAFeed = [], WAFeed = [], WIFeed = [], WVFeed = [], WYFeed;
 var localsettings = {}, settings, video, player, hls, staticUpdateID, newZIndex;
 var state, stateLength, settingID, cameraKeys = [];
 var paToken = "";
@@ -219,7 +224,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
         for (var i = 0; i < stateLength; i++) {
             state = document.getElementsByClassName("wmeDOTCamCheckbox")[i].id.replace("chk", "").replace("CamEnabled", "");
             if (W.map.getLayersByName(state + 'Layer').length != "0") {
-                eval(state + 'Layer.setVisibility(' + value + ')');
+                layers[state].setVisibility(value);
             }
         }
     }
@@ -241,10 +246,13 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
     //Build the State Layers
     function buildDOTCamLayers(state) {
-        eval(state.substring(0, 2) + 'Layer = new OpenLayers.Layer.Markers("' + state.substring(0, 2) + 'Layer")');
-        eval('W.map.addLayer(' + state.substring(0, 2) + 'Layer)');
-        //eval(state + "Layer.setZIndex(" + newZIndex + ")");
-        W.map.getOLMap().setLayerIndex(eval(state.substring(0, 2) + 'Layer'), 10);
+        const stateAbbr = state.substring(0, 2);
+        const layerName = `${stateAbbr}Layer`;
+        const layer = new OpenLayers.Layer.Markers(layerName);
+        layers[stateAbbr] = layer;
+        W.map.addLayer(layer);
+        // layer.setZIndex(newZIndex);
+        W.map.getOLMap().setLayerIndex(layer, 10);
     }
     function getFeed(url, type, headers, callback) {
         GM_xmlhttpRequest({
@@ -263,28 +271,29 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             let state = property.replace("chk", "").replace("CamEnabled", "");
             if (state.length == 2) {
                 if (document.getElementById('chk' + state + 'CamEnabled').checked && (W.map.getLayersByName(state + 'Layer').length == 1)) {
-                    eval('W.map.removeLayer(' + state + 'Layer)');
+                    W.map.removeLayer(layers[state]);
                     buildDOTCamLayers(state);
-                    eval('testCam(' + state + 'Feed, config.' + state + ')');
+                    testCam(feeds[state], config[state], state);
                     if (W.map.getZoom() >= 12) {
                         if (document.getElementById('chkHideZoomOut').checked) {
                             if (W.map.getZoom() > document.getElementById('valueHideZoomLevelCam').value) {
-                                eval(state + 'Layer.setVisibility(true)');
+                                layers[state].setVisibility(true);
                             } else {
-                                eval(state + 'Layer.setVisibility(false)');
+                                layers[state].setVisibility(false);
                                 console.log("disabling " + state);
                             }
                         } else {
-                            eval(state + 'Layer.setVisibility(true)');
+                            layers[state].setVisibility(true);
                         }
                     } else {
-                        eval(state + 'Layer.setVisibility(false)');
+                        layers[state].setVisibility(false);
                     }
                 }
             }
         }
     }
-    function getCam(state) {
+    function getCam(stateAbbr) {
+        const state = config[stateAbbr];
         let j = 0;
         while (j < state.URL.length) {
             console.log(state.URL);
@@ -297,36 +306,36 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 } else {
                     resultObj = state.data(JSON.parse(res));
                 }
-                eval(state.scheme(resultObj[1]).state + 'Feed = resultObj');
-                testCam(resultObj, state);
+                feeds[stateAbbr] = resultObj;
+                testCam(resultObj, state, stateAbbr);
                 if (localsettings.enabled) {
                     if (document.getElementById('chkHideZoomOut').checked) {
                         if (W.map.getZoom() > document.getElementById('valueHideZoomLevelCam').value) {
-                            eval(state.scheme(resultObj[1]).state + 'Layer.setVisibility(true)');
+                            layers[stateAbbr].setVisibility(true);
                         } else {
-                            eval(state.scheme(resultObj[1]).state + 'Layer.setVisibility(false)');
+                            layers[stateAbbr].setVisibility(false);
                         }
                     }
                     else {
-                        eval(state.scheme(resultObj[1]).state + 'Layer.setVisibility(true)');
+                        layers[stateAbbr].setVisibility(true);
                     }
                 }
             });
             j++;
         }
     }
-    function testCam(resultObj, state) {
+    function testCam(resultObj, state, stateAbbr) {
         let i = 0;
         while (i < resultObj.length) {
             if ((state.scheme(resultObj[i]).lon > mapBounds.left) && (state.scheme(resultObj[i]).lon < mapBounds.right)) {
                 if ((state.scheme(resultObj[i]).lat > mapBounds.bottom) && (state.scheme(resultObj[i]).lat < mapBounds.top)) {
-                    drawCam(state.scheme(resultObj[i]));
+                    drawCam(state.scheme(resultObj[i]), stateAbbr);
                 }
             }
             i++;
         }
     }
-    function drawCam(spec) {
+    function drawCam(spec, stateAbbr) {
         var icon;
         var size = new OpenLayers.Size(20, 20);
         if (spec.enabled == false) {
@@ -347,12 +356,12 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
         newMarker.url = spec.src;
         newMarker.width = spec.width;
         newMarker.height = spec.height;
-        newMarker.state = spec.state;
+        newMarker.state = stateAbbr;
         newMarker.camType = spec.camType;
         newMarker.location = lonLat;
         //newMarker.setOpacity(.8);
         newMarker.events.register('click', newMarker, popupCam);
-        eval(spec.state + 'Layer.addMarker(newMarker)');
+        layers[stateAbbr].addMarker(newMarker);
     }
     //Generate the Camera Popup
     function popupCam(evt) {
@@ -595,18 +604,23 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             $("#gmPopupContainerCam").hide();
         });
         dragElement(document.getElementById("gmPopupContainerCam"));
-        setTimeout(function () {
-            fetch(currentCamURL)
-                .then(response => {
-                    if (!response.ok) {
-                        //Bad feed
-                        $('#videoDiv').empty();
-                        document.getElementById('videoDiv').innerHTML = "<br>Sorry, this feed is currently offline.";
-                    } else {
-                        //Good Feed
-                    }
-                });
-        }, 1500);
+        // if ([0, 2, 3].includes(this.camType)) {
+        //     setTimeout(function () {
+        //         GM_xmlhttpRequest({
+        //             method: 'GET',
+        //             url: currentCamURL,
+        //             onload: function(response) {
+        //                 if (!response.ok) {
+        //                     //Bad feed
+        //                     $('#videoDiv').empty();
+        //                     document.getElementById('videoDiv').innerHTML = "<br>Sorry, this feed is currently offline.";
+        //                 } else {
+        //                     //Good Feed
+        //                 }
+        //             }
+        //         });
+        //     }, 1500);
+        // }
     }
     // Make the DIV element draggable:
     function dragElement(elmnt) {
@@ -656,40 +670,39 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
         //Set the state checkboxes according to saved settings
         for (var i = 0; i < stateLength; i++) {
             state = document.getElementsByClassName("wmeDOTCamCheckbox")[i].id.replace("chk", "").replace("CamEnabled", "");
-            setChecked('chk' + state + 'CamEnabled', eval('settings.' + state + 'CamEnabled'));
+            setChecked(`chk${state}CamEnabled`, settings[`${state}CamEnabled`]);
         }
         for (var i = 0; i < document.getElementsByClassName("wmeDOTCamSettings").length; i++) {
             settingID = document.getElementsByClassName("wmeDOTCamSettings")[i].id;
             if (document.getElementsByClassName("wmeDOTCamSettings")[i].type == "checkbox") {
-                setChecked(settingID, eval('settings.' + settingID));
+                setChecked(settingID, settings[settingID]);
             } else if (document.getElementsByClassName("wmeDOTCamSettings")[i].type == "select-one") {
-                document.getElementById('valueHideZoomLevelCam').value = eval('settings.' + settingID);
-                //alert(document.getElementById('valueHideZoomLevelCam').value + " : " + eval('settings.' + settingID));
-                //$("#valueHideZoomLevelCam").val(eval('settings.' + settingID)).change();
-
+                document.getElementById('valueHideZoomLevelCam').value = settings[settingID];
+                //alert(document.getElementById('valueHideZoomLevelCam').value + " : " + settings[settingID]));
+                //$("#valueHideZoomLevelCam").val(settings[settingID]).change();
             }
         }
         //Build the layers for the selected states
         for (var i = 0; i < stateLength; i++) {
             state = document.getElementsByClassName("wmeDOTCamCheckbox")[i].id.replace("chk", "").replace("CamEnabled", "");
-            if (document.getElementById('chk' + state + 'CamEnabled').checked) { buildDOTCamLayers(state); eval('getCam(config.' + state + ')'); }
+            if (document.getElementById(`chk${state}CamEnabled`).checked) { buildDOTCamLayers(state); getCam(state); }
         }
         document.getElementById('chkFLCamEnabled').disabled = true; // need to figure out tokens
         document.getElementById('chkARCamEnabled').disabled = true; // need to figure out tokens
         //document.getElementById('chkTXCamEnabled').disabled = true; // not working
 
-
         //Add Handler for Checkbox Setting Changes
         $('.wmeDOTCamCheckbox').change(function () {
-            var settingName = $(this)[0].id.substr(3);
+            const settingName = $(this)[0].id.substr(3);
+            const stateAbbr = settingName.substring(0, 2);
             settings[settingName] = this.checked;
             saveSettings();
             if (this.checked) {
-                buildDOTCamLayers(settingName.substring(0, 2));
-                eval("getCam(config." + settingName.substring(0, 2) + ")");
+                buildDOTCamLayers(stateAbbr);
+                getCam(stateAbbr);
             } else {
-                //eval(settingName.substring(0, 2) + "Layer.destroy()");
-                eval('W.map.removeLayer(' + settingName.substring(0, 2) + 'Layer)');
+                // layers[state].destroy();
+                W.map.removeLayer(layers[stateAbbr]);
             }
         });
         $('.wmeDOTCamSettings').change(function () {
@@ -735,15 +748,15 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
         if (localStorage) {
             for (var i = 0; i < stateLength; i++) {
                 state = document.getElementsByClassName("wmeDOTCamCheckbox")[i].id.replace("chk", "").replace("CamEnabled", "");
-                eval('localsettings.' + state + 'CamEnabled = document.getElementsByClassName("wmeDOTCamCheckbox")[i].checked');
+                localsettings[`${state}CamEnabled`] = document.getElementsByClassName("wmeDOTCamCheckbox")[i].checked;
             }
             for (var i = 0; i < document.getElementsByClassName("wmeDOTCamSettings").length; i++) {
                 if (document.getElementsByClassName("wmeDOTCamSettings")[i].type == "checkbox") {
                     settingID = document.getElementsByClassName("wmeDOTCamSettings")[i].id;
-                    eval('localsettings.' + settingID + ' = document.getElementsByClassName("wmeDOTCamSettings")[i].checked');
+                    localsettings[settingID] = document.getElementsByClassName("wmeDOTCamSettings")[i].checked;
                 } else if (document.getElementsByClassName("wmeDOTCamSettings")[i].type == "select-one") {
                     settingID = document.getElementsByClassName("wmeDOTCamSettings")[i].id;
-                    eval('localsettings.' + settingID + ' = document.getElementsByClassName("wmeDOTCamSettings")[i].value');
+                    localsettings[settingID] = document.getElementsByClassName("wmeDOTCamSettings")[i].value;
                 }
             }
             localStorage.setItem("Camera_Settings", JSON.stringify(localsettings));
@@ -829,7 +842,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "AK",
                     camType: 1,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -841,27 +853,20 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
         },
         AL: {
             data(res) {
-                let cams = [];
-                let i = 0;
-                while (i < res.length) {
-                    cams.push(res[i].entries);
-                    i++;
-                }
-                return cams.flat();
+                return res;
             },
             scheme(obj) {
                 return {
-                    state: "AL",
                     camType: 0,
-                    lon: obj.longitude,
-                    lat: obj.latitude,
-                    src: obj.streamUrl,
-                    desc: `${obj.primaryRoad} @ ${obj.crossStreet}`,
+                    lon: obj.location.longitude,
+                    lat: obj.location.latitude,
+                    src: obj.hlsUrl,
+                    desc: `${obj.location.displayRouteDesignator} @ ${obj.location.displayCrossStreet}`,
                     width: 480,
                     height: 360
                 };
             },
-            URL: ['https://algotraffic.com/api/v1/layers/cameras']
+            URL: ['https://api.algotraffic.com/v3.0/Cameras']
         },
         AR: {
             data(res) {
@@ -869,7 +874,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "AR",
                     camType: 0,
                     lon: obj.lon,
                     lat: obj.lat,
@@ -887,7 +891,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "AZ",
                     camType: 1,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -903,7 +906,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "CA",
                     camType: 1,
                     lon: obj.cctv.location.longitude,
                     lat: obj.cctv.location.latitude,
@@ -920,7 +922,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.streamUrl !== null) {
                     return {
-                        state: "CO",
                         camType: 0,
                         lon: obj.features[0].geometry.coordinates[0],
                         lat: obj.features[0].geometry.coordinates[1],
@@ -930,7 +931,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 }
                 else {
                     return {
-                        state: "CO",
                         camType: 1,
                         lon: obj.features[0].geometry.coordinates[0],
                         lat: obj.features[0].geometry.coordinates[1],
@@ -947,7 +947,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "CT",
                     camType: 1,
                     lon: obj.location[1],
                     lat: obj.location[0],
@@ -963,7 +962,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "DC",
                     camType: 0,
                     lon: obj.lng,
                     lat: obj.lat,
@@ -981,7 +979,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "DE",
                     camType: 0,
                     lon: obj.lon,
                     lat: obj.lat,
@@ -999,7 +996,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "FL",
                     camType: 0,
                     lon: obj.longitude,
                     lat: obj.latitude,
@@ -1025,7 +1021,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                     camType = 1;
                 }
                 return {
-                    state: "GA",
                     camType: camType,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -1042,7 +1037,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.images.length == 4) {
                     return {
-                        state: "HI",
                         camType: 0,
                         lon: obj.location.coordinates.longitude,
                         lat: obj.location.coordinates.latitude,
@@ -1052,7 +1046,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 }
                 else {
                     return {
-                        state: "HI",
                         camType: 1,
                         lon: obj.location.coordinates.longitude,
                         lat: obj.location.coordinates.latitude,
@@ -1070,7 +1063,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (!obj.attributes.VideoURL) {
                     return {
-                        state: "IA",
                         camType: 1,
                         lon: obj.geometry.x,
                         lat: obj.geometry.y,
@@ -1079,7 +1071,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                     };
                 } else {
                     return {
-                        state: "IA",
                         camType: 0,
                         lon: obj.geometry.x,
                         lat: obj.geometry.y,
@@ -1096,7 +1087,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "ID",
                     camType: 1,
                     lon: obj.features[0].geometry.coordinates[0],
                     lat: obj.features[0].geometry.coordinates[1],
@@ -1112,7 +1102,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "IL",
                     camType: 1,
                     lon: obj.attributes.x,
                     lat: obj.attributes.y,
@@ -1128,7 +1117,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "IN",
                     camType: 1,
                     lon: obj.features[0].geometry.coordinates[0],
                     lat: obj.features[0].geometry.coordinates[1],
@@ -1144,7 +1132,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "KS",
                     camType: 1,
                     lon: obj.features[0].geometry.coordinates[0],
                     lat: obj.features[0].geometry.coordinates[1],
@@ -1160,8 +1147,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "KY",
-                    camType: 5,
+                    camType: 1,
                     lon: obj.attributes.longitude,
                     lat: obj.attributes.latitude,
                     src: obj.attributes.snapshot,
@@ -1177,7 +1163,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.VideoUrl == null) {
                     return {
-                        state: "LA",
                         camType: 1,
                         lon: obj.Longitude,
                         lat: obj.Latitude,
@@ -1188,7 +1173,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                     };
                 } else {
                     return {
-                        state: "LA",
                         camType: 0,
                         lon: obj.Longitude,
                         lat: obj.Latitude,
@@ -1205,11 +1189,10 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MA",
                     camType: 1,
                     lon: obj.features[0].geometry.coordinates[0],
                     lat: obj.features[0].geometry.coordinates[1],
-                    src: obj.views[0].url,
+                    src: obj.views[0]?.url,
                     desc: obj.tooltip
                 };
             },
@@ -1221,7 +1204,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MD",
                     camType: 0,
                     lon: obj.lon,
                     lat: obj.lat,
@@ -1239,7 +1221,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MI",
                     camType: 1,
                     lon: obj.county.match(/(?<=lon=)[\s\S]*(?=&zoom)/)[0],
                     lat: obj.county.match(/(?<=lat=)[\s\S]*(?=&lon)/)[0],
@@ -1256,7 +1237,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.streamUrl !== null) {
                     return {
-                        state: "MN",
                         camType: 0,
                         lon: obj.features[0].geometry.coordinates[0],
                         lat: obj.features[0].geometry.coordinates[1],
@@ -1266,7 +1246,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 }
                 else {
                     return {
-                        state: "MN",
                         camType: 1,
                         lon: obj.features[0].geometry.coordinates[0],
                         lat: obj.features[0].geometry.coordinates[1],
@@ -1283,7 +1262,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MO",
                     camType: 0,
                     lon: obj.x,
                     lat: obj.y,
@@ -1299,7 +1277,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MS",
                     camType: 0,
                     lon: obj.lon,
                     lat: obj.lat,
@@ -1317,11 +1294,10 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "MT",
                     camType: 1,
                     lon: obj.geometry.coordinates[0],
                     lat: obj.geometry.coordinates[1],
-                    src: obj.properties.cameras[0].image,
+                    src: obj.properties.cameras[0]?.image,
                     desc: obj.properties.description
                 };
             },
@@ -1333,7 +1309,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "NC",
                     camType: 4,
                     lon: obj.longitude,
                     lat: obj.latitude,
@@ -1349,7 +1324,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "ND",
                     camType: 1,
                     lon: obj.geometry.coordinates[0],
                     lat: obj.geometry.coordinates[1],
@@ -1365,7 +1339,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "NE",
                     camType: 1,
                     lon: obj.features[0].geometry.coordinates[0],
                     lat: obj.features[0].geometry.coordinates[1],
@@ -1386,7 +1359,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 if (obj.StopCameraFlag == true) { online = false; } else { online = true; }
                 if ((obj.CameraMainDetail[0].cameratype == "Video") && (online == true)) { type = 3; } else { type = 1; }
                 return {
-                    state: "NJ",
                     enabled: online,
                     camType: type,
                     lon: obj.longitude,
@@ -1405,7 +1377,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "NM",
                     camType: 1,
                     lon: obj.lon,
                     lat: obj.lat,
@@ -1421,7 +1392,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "NV",
                     camType: 0,
                     lon: obj.Lon,
                     lat: obj.Lat,
@@ -1439,7 +1409,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "NW",
                     camType: 1,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -1456,7 +1425,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.VideoUrl == null) {
                     return {
-                        state: "NY",
                         camType: 1,
                         lon: obj.Longitude,
                         lat: obj.Latitude,
@@ -1467,7 +1435,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                     };
                 } else {
                     return {
-                        state: "NY",
                         camType: 0,
                         lon: obj.Longitude,
                         lat: obj.Latitude,
@@ -1485,7 +1452,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.mapCameras.length > 0) {
                     return {
-                        state: "OK",
                         camType: 0,
                         lon: obj.mapCameras[0].longitude,
                         lat: obj.mapCameras[0].latitude,
@@ -1502,7 +1468,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "OH",
                     camType: 1,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -1518,7 +1483,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "OR",
                     camType: 1,
                     lon: obj.attributes.longitude,
                     lat: obj.attributes.latitude,
@@ -1536,7 +1500,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 let online = !obj.videoDisabled;
                 if (obj.videoUrl != null) {
                     return {
-                        state: "PA",
                         enabled: online,
                         camType: 2,
                         lon: obj.longitude,
@@ -1548,7 +1511,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                     };
                 } else {
                     return {
-                        state: "PA",
                         enabled: online,
                         camType: 1,
                         lon: obj.longitude,
@@ -1570,7 +1532,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 if (obj.properties.titre) {
                     return {
-                        state: "QC",
                         camType: 1,
                         lon: obj.geometry.coordinates[0],
                         lat: obj.geometry.coordinates[1],
@@ -1580,7 +1541,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
                 }
                 else {
                     return {
-                        state: "QC",
                         camType: 5,
                         lon: obj.geometry.coordinates[0],
                         lat: obj.geometry.coordinates[1],
@@ -1598,7 +1558,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "RI",
                     camType: 1,
                     lon: obj.attributes.Longitude,
                     lat: obj.attributes.Latitude,
@@ -1614,7 +1573,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "SC",
                     camType: 0,
                     lon: obj.geometry.coordinates[0],
                     lat: obj.geometry.coordinates[1],
@@ -1632,7 +1590,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "SD",
                     camType: 1,
                     lon: obj.geometry.coordinates[0],
                     lat: obj.geometry.coordinates[1],
@@ -1650,7 +1607,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "TN",
                     camType: 0,
                     lon: obj.location.coordinates[0].lng,
                     lat: obj.location.coordinates[0].lat,
@@ -1668,7 +1624,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "TX",
                     camType: 6,
                     lon: obj.longitude,
                     lat: obj.latitude,
@@ -1685,7 +1640,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             scheme(obj) {
                 let coordinates = obj.Point.coordinates.split(",");
                 return {
-                    state: "UT",
                     camType: 1,
                     lon: coordinates[0],
                     lat: coordinates[1],
@@ -1701,7 +1655,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "VA",
                     camType: 0,
                     lon: obj.geometry.coordinates[0],
                     lat: obj.geometry.coordinates[1],
@@ -1717,7 +1670,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "WA",
                     camType: 1,
                     lon: obj.CameraLocation.Longitude,
                     lat: obj.CameraLocation.Latitude,
@@ -1733,7 +1685,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "WI",
                     camType: 1,
                     lon: obj.Longitude,
                     lat: obj.Latitude,
@@ -1749,7 +1700,6 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
             },
             scheme(obj) {
                 return {
-                    state: "WV",
                     camType: 0,
                     lon: obj.start_lng,
                     lat: obj.start_lat,
